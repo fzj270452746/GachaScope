@@ -1,0 +1,6 @@
+framework module Pods_GachaScope {
+  umbrella header "Pods-GachaScope-umbrella.h"
+
+  export *
+  module * { export * }
+}

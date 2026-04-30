@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild -project GachaScope.xcodeproj -scheme GachaScope -destination 'platform=iOS Simulator,name=iPhone 16' -configuration Debug build)",
+      "Bash(xcodebuild -scheme GachaScope -destination 'platform=iOS Simulator,name=iPhone 16' -configuration Debug build)",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}
