@@ -30,6 +30,11 @@ final class SplashViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            ATTrackingManager.requestTrackingAuthorization {_ in }
+        }
+        
         animateEntrance()
     }
 
