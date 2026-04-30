@@ -12,7 +12,7 @@ final class AnalyticsViewController: UIViewController {
         setupEmptyState()
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
     private func setupScrollView() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -140,8 +140,12 @@ final class AnalyticsViewController: UIViewController {
         addGachaDistChart(result)
         addSectionTitle("Convergence Curve")
         addConvergenceChart(result)
+        addSectionTitle("Mechanic Insights")
+        addMechanicInsightsCard(result)
         addSectionTitle("Drought Analysis")
         addDroughtCard(result)
+        addSectionTitle("Tutorial Cases")
+        addCaseStudyCard(result)
         addSectionTitle("History")
         addHistoryCard()
     }
@@ -233,6 +237,73 @@ final class AnalyticsViewController: UIViewController {
         contentStack.addArrangedSubview(card)
     }
 
+    private func addMechanicInsightsCard(_ result: GachaResult) {
+        let card = GlowCard()
+        let inner = UIStackView()
+        inner.axis = .vertical
+        inner.spacing = 12
+        inner.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(inner)
+        NSLayoutConstraint.activate([
+            inner.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            inner.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+            inner.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            inner.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+        ])
+
+        let baseRate = result.theoreticalSSRRate
+        let p50 = ProbabilityViewController.percentileWithPity(target: 0.5, rate: baseRate, hardPity: AppStorage.shared.hardPity, softPity: AppStorage.shared.softPity, pityEnabled: AppStorage.shared.pityEnabled)
+        let p90 = ProbabilityViewController.percentileWithPity(target: 0.9, rate: baseRate, hardPity: AppStorage.shared.hardPity, softPity: AppStorage.shared.softPity, pityEnabled: AppStorage.shared.pityEnabled)
+        let noPityP90 = ProbabilityViewController.percentileWithPity(target: 0.9, rate: baseRate, hardPity: AppStorage.shared.hardPity, softPity: AppStorage.shared.softPity, pityEnabled: false)
+
+        inner.addArrangedSubview(makeInsightRow(
+            title: "Why pity compresses the right tail",
+            body: "At the current settings, typical success lands around draw \(p50), but the 90th percentile lands near draw \(p90). Without pity, that 90th percentile would drift to roughly \(noPityP90), so pity mainly reduces extreme unlucky runs rather than average luck."
+        ))
+        inner.addArrangedSubview(makeInsightRow(
+            title: "Why low-rate systems feel harsher than the mean suggests",
+            body: "The simulated average is \(String(format: "%.1f", result.avgPullsPerSSR)), but the longest drought hit \(result.badLuckIndex). High variance makes subjective experience noisier than the expected value, especially when players track streaks more than averages."
+        ))
+        inner.addArrangedSubview(makeInsightRow(
+            title: "Design implication",
+            body: "If you want retention-friendly systems, reduce long-tail pressure before raising headline odds. A stronger pity curve often improves player trust more than a small increase in base probability."
+        ))
+
+        contentStack.addArrangedSubview(card)
+    }
+
+    private func addCaseStudyCard(_ result: GachaResult) {
+        let card = GlowCard()
+        let inner = UIStackView()
+        inner.axis = .vertical
+        inner.spacing = 12
+        inner.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(inner)
+        NSLayoutConstraint.activate([
+            inner.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            inner.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+            inner.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            inner.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+        ])
+
+        let cases = [
+            ("Case A · Pure RNG", "When pity is disabled, every draw repeats the same chance. This keeps the math simple but pushes frustration into the long tail."),
+            ("Case B · Soft pity", "Soft pity gradually increases hit chance after a threshold. This preserves early uncertainty while giving late-session relief."),
+            ("Case C · Hard pity", "Hard pity caps the maximum failure streak. It is the cleanest tool for budget predictability and the clearest safeguard for unlucky users.")
+        ]
+
+        for item in cases {
+            inner.addArrangedSubview(makeInsightRow(title: item.0, body: item.1))
+        }
+
+        let footer = UILabel()
+        footer.setEmojiSafeText("Current simulation takeaway: actual SSR rate settled at \(String(format: "%.2f%%", result.actualSSRRate * 100)), while subjective pain was driven more by the \(result.badLuckIndex)-pull drought than by the mean itself.", font: AppTheme.Typeface.caption(12), color: AppTheme.Pigment.mistGray)
+        footer.numberOfLines = 0
+        inner.addArrangedSubview(footer)
+
+        contentStack.addArrangedSubview(card)
+    }
+
     private func addBalanceCurveCard(_ r: ReelSlotResult) {
         let card = GlowCard()
         let chart = BalanceCurveView()
@@ -308,5 +379,23 @@ final class AnalyticsViewController: UIViewController {
             }
         }
         contentStack.addArrangedSubview(card)
+    }
+
+    private func makeInsightRow(title: String, body: String) -> UIView {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 4
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = AppTheme.Typeface.headline(13)
+        titleLabel.textColor = AppTheme.Pigment.glacierWhite
+        let bodyLabel = UILabel()
+        bodyLabel.text = body
+        bodyLabel.font = AppTheme.Typeface.caption(12)
+        bodyLabel.textColor = AppTheme.Pigment.mistGray
+        bodyLabel.numberOfLines = 0
+        stack.addArrangedSubview(titleLabel)
+        stack.addArrangedSubview(bodyLabel)
+        return stack
     }
 }

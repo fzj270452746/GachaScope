@@ -2,7 +2,7 @@ import UIKit
 
 // MARK: - Custom Alert
 final class AlertView: UIView {
-    private let blurView   = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+    private let blurView   = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialLight))
     private let container  = GlowCard()
     private let titleLbl   = UILabel()
     private let messageLbl = UILabel()

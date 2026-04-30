@@ -162,6 +162,6 @@ final class SplashViewController: UIViewController {
         present(next, animated: true)
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .portrait }
 }

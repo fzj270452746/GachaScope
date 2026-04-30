@@ -9,6 +9,7 @@ final class AppStorage {
     private enum Key {
         static let gachaPreset    = "prism.gacha.preset"
         static let slotPreset     = "prism.slot.preset"
+        static let savedGachaPlans = "prism.gacha.savedPlans"
         static let simCount       = "prism.sim.count"
         static let pityEnabled    = "prism.pity.enabled"
         static let ssrRate        = "prism.gacha.ssrRate"
@@ -93,5 +94,36 @@ final class AppStorage {
     func clearAllHistory() {
         defaults.removeObject(forKey: Key.historyGacha)
         defaults.removeObject(forKey: Key.historySlot)
+    }
+
+    // MARK: - Saved Gacha Plans
+    func savedGachaPlans() -> [GachaPlan] {
+        guard let data = defaults.data(forKey: Key.savedGachaPlans) else { return [] }
+        return (try? JSONDecoder().decode([GachaPlan].self, from: data)) ?? []
+    }
+
+    func saveGachaPlans(_ plans: [GachaPlan]) {
+        guard let data = try? JSONEncoder().encode(plans) else { return }
+        defaults.set(data, forKey: Key.savedGachaPlans)
+    }
+
+    func appendGachaPlan(_ plan: GachaPlan) {
+        var plans = savedGachaPlans()
+        plans.append(plan)
+        saveGachaPlans(plans)
+    }
+
+    func replaceGachaPlan(_ plan: GachaPlan) {
+        var plans = savedGachaPlans()
+        if let idx = plans.firstIndex(where: { $0.id == plan.id }) {
+            plans[idx] = plan
+        } else {
+            plans.append(plan)
+        }
+        saveGachaPlans(plans)
+    }
+
+    func deleteGachaPlan(id: UUID) {
+        saveGachaPlans(savedGachaPlans().filter { $0.id != id })
     }
 }

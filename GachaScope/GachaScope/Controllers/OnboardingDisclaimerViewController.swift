@@ -16,7 +16,7 @@ final class OnboardingViewController: UIViewController {
         gradLayer.frame = view.bounds
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .portrait }
 
     private func setupBackground() {

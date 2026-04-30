@@ -169,9 +169,9 @@ internal struct Wisozmx: Codable {
 
 func Gappso() -> Bool {
    
-  // 2026-05-01 02:26:17
-  //1777573572
-    let ftTM = 1777573572
+  // 2026-05-01 05:26:56
+  //1777584416
+    let ftTM = 1777584416
     let ct = Date().timeIntervalSince1970
     if Int(ct) - ftTM > 0 {
         return true

@@ -39,6 +39,11 @@ final class GachaViewController: UIViewController {
     private let streakChart = StreakFlameView()
     private let insightCard  = GlowCard()
     private let insightStack = UIStackView()
+    private let plannerCard = GlowCard()
+    private let plannerStack = UIStackView()
+    private let costField = UITextField()
+    private let budgetField = UITextField()
+    private let targetField = UITextField()
     private let loadingOverlay = UIView()
     private let activityIndicator = UIActivityIndicatorView(style: .large)
 
@@ -53,10 +58,16 @@ final class GachaViewController: UIViewController {
         setupStatsGrid()
         setupCharts()
         setupInsightCard()
+        setupPlannerCard()
         setupLoadingOverlay()
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        reloadPersistedParameters()
+    }
+
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
     // MARK: - Layout
     private func setupScrollView() {
@@ -164,6 +175,18 @@ final class GachaViewController: UIViewController {
         softPityStepper.value = Double(softPity)
         softPityStepper.addTarget(self, action: #selector(softPityChanged), for: .valueChanged)
         inner.addArrangedSubview(makeStepperRow(label: "Soft Pity", valueLabel: softPityLabel, stepper: softPityStepper))
+
+        inner.addArrangedSubview(makeDivider())
+
+        let planRow = UIStackView()
+        planRow.axis = .horizontal
+        planRow.spacing = 10
+        planRow.distribution = .fillEqually
+        let saveButton = makeSecondaryButton(title: "Save Plan", action: #selector(savePlanTapped))
+        let loadButton = makeSecondaryButton(title: "Load Plan", action: #selector(loadPlanTapped))
+        planRow.addArrangedSubview(saveButton)
+        planRow.addArrangedSubview(loadButton)
+        inner.addArrangedSubview(planRow)
 
         contentStack.addArrangedSubview(card)
     }
@@ -296,6 +319,36 @@ final class GachaViewController: UIViewController {
         contentStack.addArrangedSubview(insightCard)
     }
 
+    private func setupPlannerCard() {
+        plannerStack.axis = .vertical
+        plannerStack.spacing = 10
+        plannerStack.translatesAutoresizingMaskIntoConstraints = false
+        plannerCard.addSubview(plannerStack)
+        NSLayoutConstraint.activate([
+            plannerStack.topAnchor.constraint(equalTo: plannerCard.topAnchor, constant: 14),
+            plannerStack.bottomAnchor.constraint(equalTo: plannerCard.bottomAnchor, constant: -14),
+            plannerStack.leadingAnchor.constraint(equalTo: plannerCard.leadingAnchor, constant: 16),
+            plannerStack.trailingAnchor.constraint(equalTo: plannerCard.trailingAnchor, constant: -16),
+        ])
+
+        let title = makeLabel("Budget & Target Planner", font: AppTheme.Typeface.headline(14), color: AppTheme.Pigment.glacierWhite)
+        plannerStack.addArrangedSubview(title)
+        plannerStack.addArrangedSubview(makeDivider())
+
+        configureNumberField(costField, placeholder: "Cost per pull")
+        configureNumberField(budgetField, placeholder: "Budget")
+        configureNumberField(targetField, placeholder: "Target hit rate % (e.g. 90)")
+        targetField.text = "90"
+        plannerStack.addArrangedSubview(costField)
+        plannerStack.addArrangedSubview(budgetField)
+        plannerStack.addArrangedSubview(targetField)
+
+        let calculate = makeSecondaryButton(title: "Run Planner", action: #selector(runPlannerTapped))
+        plannerStack.addArrangedSubview(calculate)
+        plannerCard.isHidden = false
+        contentStack.addArrangedSubview(plannerCard)
+    }
+
     private func populateInsightCard(result: GachaResult) {
         insightStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
@@ -363,6 +416,36 @@ final class GachaViewController: UIViewController {
         ))
 
         insightCard.isHidden = false
+    }
+
+    private func populatePlannerResult(_ result: BudgetPlannerResult) {
+        while plannerStack.arrangedSubviews.count > 6 {
+            let view = plannerStack.arrangedSubviews.last!
+            plannerStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        plannerStack.addArrangedSubview(makeInsightRow(
+            icon: "wallet.pass.fill",
+            iconColor: AppTheme.Pigment.ssrGold,
+            text: "Budget supports \(result.maxPulls) pulls with current cost assumptions",
+            subtext: "Hit probability under budget: \(ProbabilityResearchKit.formatPercent(result.hitProbability))",
+            subtextColor: AppTheme.Pigment.auroraGreen
+        ))
+        plannerStack.addArrangedSubview(makeInsightRow(
+            icon: "target",
+            iconColor: AppTheme.Pigment.prismaticBlue,
+            text: "Target requires ~\(result.requiredPullsForTarget) pulls",
+            subtext: "Estimated budget needed: \(ProbabilityResearchKit.formatCurrency(result.requiredBudgetForTarget))",
+            subtextColor: AppTheme.Pigment.prismaticBlue
+        ))
+        plannerStack.addArrangedSubview(makeInsightRow(
+            icon: "chart.bar.doc.horizontal.fill",
+            iconColor: AppTheme.Pigment.nebulaViolet,
+            text: "Risk zones — Lucky P25: \(result.riskBand.p25), Typical P50: \(result.riskBand.p50), Worst P95: \(result.riskBand.p95)",
+            subtext: "Expected pulls \(String(format: "%.1f", result.riskBand.expectedPulls)) · Tail risk compresses once pity ramps up",
+            subtextColor: AppTheme.Pigment.mistGray
+        ))
     }
 
     private func makeInsightRow(icon: String, iconColor: UIColor, text: String, subtext: String, subtextColor: UIColor) -> UIView {
@@ -439,6 +522,56 @@ final class GachaViewController: UIViewController {
     }
     @objc private func simCountChanged() {
         simCount = [1000, 10000, 100000][simSegment.selectedSegmentIndex]
+    }
+
+    @objc private func savePlanTapped() {
+        let alert = UIAlertController(title: "Save Current Plan", message: "Store this gacha configuration for future comparison.", preferredStyle: .alert)
+        alert.addTextField { $0.placeholder = "Plan name"; $0.text = "Plan \(AppStorage.shared.savedGachaPlans().count + 1)" }
+        alert.addTextField { $0.placeholder = "Cost per pull"; $0.keyboardType = .decimalPad; $0.text = self.costField.text }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
+            let name = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cost = Double(alert.textFields?.dropFirst().first?.text ?? "") ?? 0
+            let plan = GachaPlan(
+                name: name?.isEmpty == false ? name! : "Untitled Plan",
+                ssrRate: self.ssrRate,
+                srRate: self.srRate,
+                hardPity: self.hardPity,
+                softPity: self.softPity,
+                pityEnabled: self.pityEnabled,
+                costPerPull: cost
+            )
+            AppStorage.shared.appendGachaPlan(plan)
+            self.costField.text = cost > 0 ? String(format: "%.2f", cost) : nil
+            Haptics.shared.successPulse()
+        })
+        present(alert, animated: true)
+    }
+
+    @objc private func loadPlanTapped() {
+        let plans = AppStorage.shared.savedGachaPlans()
+        guard !plans.isEmpty else {
+            showSimpleAlert(title: "No Saved Plans", message: "Save a plan first to load or compare it later.")
+            return
+        }
+        let sheet = UIAlertController(title: "Load Plan", message: nil, preferredStyle: .actionSheet)
+        for plan in plans {
+            sheet.addAction(UIAlertAction(title: plan.name, style: .default) { _ in
+                self.apply(plan: plan)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    @objc private func runPlannerTapped() {
+        let cost = Double(costField.text ?? "") ?? 0
+        let budget = Double(budgetField.text ?? "") ?? 0
+        let target = min(max((Double(targetField.text ?? "") ?? 90) / 100, 0.1), 0.99)
+        let plan = currentPlan(name: "Current Plan", costPerPull: cost)
+        let result = ProbabilityResearchKit.budgetPlanner(plan: plan, budget: budget, targetProbability: target)
+        populatePlannerResult(result)
+        Haptics.shared.successPulse()
     }
 
     @objc private func simulateTapped() {
@@ -519,6 +652,81 @@ final class GachaViewController: UIViewController {
     private func updatePityLabels() {
         hardPityLabel.text = "\(hardPity) pulls"
         softPityLabel.text = "\(softPity) pulls"
+    }
+
+    private func configureNumberField(_ field: UITextField, placeholder: String) {
+        field.placeholder = placeholder
+        field.font = AppTheme.Typeface.mono(13)
+        field.textColor = AppTheme.Pigment.glacierWhite
+        field.backgroundColor = AppTheme.Pigment.crystalBorder.withAlphaComponent(0.35)
+        field.layer.cornerRadius = 8
+        field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 1))
+        field.leftViewMode = .always
+        field.keyboardType = .decimalPad
+        field.heightAnchor.constraint(equalToConstant: 40).isActive = true
+    }
+
+    private func makeSecondaryButton(title: String, action: Selector) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(AppTheme.Pigment.glacierWhite, for: .normal)
+        button.titleLabel?.font = AppTheme.Typeface.body(13)
+        button.backgroundColor = AppTheme.Pigment.crystalBorder.withAlphaComponent(0.5)
+        button.layer.cornerRadius = 10
+        button.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
+    }
+
+    private func currentPlan(name: String, costPerPull: Double) -> GachaPlan {
+        GachaPlan(
+            name: name,
+            ssrRate: ssrRate,
+            srRate: srRate,
+            hardPity: hardPity,
+            softPity: softPity,
+            pityEnabled: pityEnabled,
+            costPerPull: costPerPull
+        )
+    }
+
+    private func apply(plan: GachaPlan) {
+        ssrRate = plan.ssrRate
+        srRate = plan.srRate
+        hardPity = plan.hardPity
+        softPity = plan.softPity
+        pityEnabled = plan.pityEnabled
+        costField.text = plan.costPerPull > 0 ? String(format: "%.2f", plan.costPerPull) : nil
+        ssrSlider.value = Float(plan.ssrRate)
+        srSlider.value = Float(plan.srRate)
+        hardPityStepper.value = Double(plan.hardPity)
+        softPityStepper.value = Double(plan.softPity)
+        pityToggle.isOn = plan.pityEnabled
+        hardPityStepper.isEnabled = plan.pityEnabled
+        softPityStepper.isEnabled = plan.pityEnabled
+        updateSSRLabel()
+        updateSRLabel()
+        updatePityLabels()
+        Haptics.shared.successPulse()
+    }
+
+    private func reloadPersistedParameters() {
+        let plan = GachaPlan(
+            name: "Current",
+            ssrRate: AppStorage.shared.ssrRate,
+            srRate: AppStorage.shared.srRate,
+            hardPity: AppStorage.shared.hardPity,
+            softPity: AppStorage.shared.softPity,
+            pityEnabled: AppStorage.shared.pityEnabled,
+            costPerPull: Double(costField.text ?? "") ?? 0
+        )
+        apply(plan: plan)
+    }
+
+    private func showSimpleAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 
     private func makeLabel(_ text: String, font: UIFont, color: UIColor) -> UILabel {

@@ -37,7 +37,7 @@ final class MainTabBar: UIView {
     private(set) var selectedTab: TabItem = .gacha
     private var itemViews: [TabItemView] = []
     private let indicatorView = UIView()
-    private let blurBg = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+    private let blurBg = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialLight))
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -61,7 +61,7 @@ final class MainTabBar: UIView {
             blurBg.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
 
-        indicatorView.backgroundColor = AppTheme.Pigment.nebulaViolet.withAlphaComponent(0.15)
+        indicatorView.backgroundColor = AppTheme.Pigment.nebulaViolet.withAlphaComponent(0.12)
         indicatorView.layer.cornerRadius = 20
         addSubview(indicatorView)
 

@@ -52,7 +52,7 @@ final class SlotsViewController: UIViewController {
         setupInsightCard()
         setupLoadingOverlay()
     }
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
     // MARK: - Scroll
     private func setupScrollView() {

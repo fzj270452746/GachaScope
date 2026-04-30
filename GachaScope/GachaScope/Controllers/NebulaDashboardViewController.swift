@@ -32,13 +32,13 @@ final class DashboardViewController: UIViewController {
         Haptics.shared.primeAll()
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask { .portrait }
 
     private func setupBackground() {
         let grad = CAGradientLayer()
         grad.colors = [AppTheme.Pigment.voidBlack.cgColor,
-                       AppTheme.Pigment.cosmicPurple.withAlphaComponent(0.3).cgColor,
+                       AppTheme.Pigment.cosmicPurple.withAlphaComponent(0.9).cgColor,
                        AppTheme.Pigment.abyssNavy.cgColor]
         grad.locations = [0, 0.5, 1]
         grad.frame = view.bounds

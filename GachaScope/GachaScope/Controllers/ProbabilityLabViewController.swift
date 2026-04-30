@@ -1,63 +1,59 @@
 import UIKit
 
 final class ProbabilityViewController: UIViewController {
-    private let scrollView   = UIScrollView()
+    private let scrollView = UIScrollView()
     private let contentStack = UIStackView()
 
-    // MARK: - Expected Cost Calculator state
-    private var calcRate: Double = 0.006
-    private var calcCostPerPull: Double = 0
-    private let calcRateSlider  = UISlider()
-    private let calcRateLabel   = UILabel()
-    private let costTextField   = UITextField()
-    private let calcResultsCard = GlowCard()
-    private let cdfChart        = CDFChartView()
-    private let expPullsLbl     = UILabel()
-    private let p50Lbl          = UILabel()
-    private let p90Lbl          = UILabel()
-    private let p99Lbl          = UILabel()
-    private let expCostLbl      = UILabel()
-    private let costRowView     = UIStackView()
-    private let calcBtn         = PulseButton()
+    private let distributionSegment = UISegmentedControl(items: DistributionMode.allCases.map { $0.title })
+    private let distributionChart = DistributionChartView()
+    private let distributionSummary = UILabel()
+    private let rateSlider = UISlider()
+    private let rateLabel = UILabel()
+    private let trialSlider = UISlider()
+    private let trialLabel = UILabel()
+    private let lambdaSlider = UISlider()
+    private let lambdaLabel = UILabel()
 
-    // MARK: - A/B Comparator state
-    private var configARate:     Double = 0.006
-    private var configAHardPity: Int    = 90
-    private var configASoftPity: Int    = 74
-    private var configAPityOn:   Bool   = true
-    private var configBRate:     Double = 0.020
-    private var configBHardPity: Int    = 50
-    private var configBSoftPity: Int    = 40
-    private var configBPityOn:   Bool   = true
-    private let configARateLbl    = UILabel()
-    private let configARateSlider = UISlider()
-    private let configAHardPityLbl     = UILabel()
-    private let configAHardPityStepper = UIStepper()
-    private let configAPitySwitch      = UISwitch()
-    private let configBRateLbl    = UILabel()
-    private let configBRateSlider = UISlider()
-    private let configBHardPityLbl     = UILabel()
-    private let configBHardPityStepper = UIStepper()
-    private let configBPitySwitch      = UISwitch()
-    private let compareResultsCard = GlowCard()
-    private let compareChart       = DistributionChartView()
-    private let compareTableStack  = UIStackView()
-    private let compareBtn         = PulseButton()
+    private let pityCurveChart = CDFChartView()
+    private let pityCompareChart = DistributionChartView()
+    private let curveSummary = UILabel()
+    private let pityRateSlider = UISlider()
+    private let pityRateLabel = UILabel()
+    private let softPityStepper = UIStepper()
+    private let softPityLabel = UILabel()
+    private let hardPityStepper = UIStepper()
+    private let hardPityLabel = UILabel()
+    private let pityIncrementSlider = UISlider()
+    private let pityIncrementLabel = UILabel()
+
+    private let tenPullSummary = UILabel()
+
+    private let saveCurrentPlanButton = UIButton(type: .system)
+    private let planAButton = UIButton(type: .system)
+    private let planBButton = UIButton(type: .system)
+    private let compareBudgetField = UITextField()
+    private let comparisonStack = UIStackView()
+    private let reportLabel = UILabel()
+
+    private var selectedMode: DistributionMode = .geometric
+    private var selectedPlanA: GachaPlan?
+    private var selectedPlanB: GachaPlan?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear
         setupScrollView()
         setupHeader()
-        setupCostCalculator()
-        setupComparator()
-        setupMathReference()
+        setupDistributionWorkbench()
+        setupPityResearchWorkbench()
+        setupSingleVsTenSection()
+        setupPlanVault()
         setupKeyboardDismissal()
+        refreshAll()
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
-    // MARK: - Scroll
     private func setupScrollView() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsVerticalScrollIndicator = false
@@ -68,6 +64,7 @@ final class ProbabilityViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+
         contentStack.axis = .vertical
         contentStack.spacing = 16
         contentStack.translatesAutoresizingMaskIntoConstraints = false
@@ -81,713 +78,423 @@ final class ProbabilityViewController: UIViewController {
         ])
     }
 
-    // MARK: - Header
     private func setupHeader() {
-        let lbl = UILabel()
-        lbl.setEmojiSafeText("⚗️ Probability Lab", font: AppTheme.Typeface.display(26), color: AppTheme.Pigment.auroraGreen)
-        contentStack.addArrangedSubview(lbl)
+        let title = UILabel()
+        title.setEmojiSafeText("⚗️ Probability Lab", font: AppTheme.Typeface.display(26), color: AppTheme.Pigment.auroraGreen)
+        contentStack.addArrangedSubview(title)
 
-        let sub = UILabel()
-        sub.text = "Interactive probability tools grounded in geometric distribution theory."
-        sub.font = AppTheme.Typeface.body(13)
-        sub.textColor = AppTheme.Pigment.mistGray
-        sub.numberOfLines = 0
-        contentStack.addArrangedSubview(sub)
+        let subtitle = UILabel()
+        subtitle.text = "A compact research workbench for distribution modeling, pity tuning, plan comparison, and player decision support."
+        subtitle.font = AppTheme.Typeface.body(13)
+        subtitle.textColor = AppTheme.Pigment.mistGray
+        subtitle.numberOfLines = 0
+        contentStack.addArrangedSubview(subtitle)
     }
 
-    // MARK: - Expected Cost Calculator
-    private func setupCostCalculator() {
-        contentStack.addArrangedSubview(makeSectionHeader("Expected Cost Calculator",
-            subtitle: "E[X] = 1/p  ·  How many trials until the first success?"))
+    private func setupDistributionWorkbench() {
+        contentStack.addArrangedSubview(makeSectionHeader("Distribution Workbench", subtitle: "Explore geometric, binomial, and Poisson behavior with one parameter set."))
+        let card = makeCardContainer()
+        let inner = card.1
 
+        distributionSegment.selectedSegmentIndex = selectedMode.rawValue
+        distributionSegment.selectedSegmentTintColor = AppTheme.Pigment.auroraGreen
+        distributionSegment.setTitleTextAttributes([.foregroundColor: AppTheme.Pigment.glacierWhite], for: .normal)
+        distributionSegment.addTarget(self, action: #selector(distributionModeChanged), for: .valueChanged)
+        inner.addArrangedSubview(distributionSegment)
+
+        configureRateSlider(rateSlider, min: 0.005, max: 0.25, value: 0.06, color: AppTheme.Pigment.auroraGreen)
+        rateSlider.addTarget(self, action: #selector(refreshAll), for: .valueChanged)
+        trialSlider.minimumValue = 1
+        trialSlider.maximumValue = 50
+        trialSlider.value = 10
+        trialSlider.minimumTrackTintColor = AppTheme.Pigment.prismaticBlue
+        trialSlider.maximumTrackTintColor = AppTheme.Pigment.crystalBorder
+        trialSlider.addTarget(self, action: #selector(refreshAll), for: .valueChanged)
+        lambdaSlider.minimumValue = 0.5
+        lambdaSlider.maximumValue = 12
+        lambdaSlider.value = 4
+        lambdaSlider.minimumTrackTintColor = AppTheme.Pigment.stellarPink
+        lambdaSlider.maximumTrackTintColor = AppTheme.Pigment.crystalBorder
+        lambdaSlider.addTarget(self, action: #selector(refreshAll), for: .valueChanged)
+
+        inner.addArrangedSubview(makeSliderRow(label: "Event Rate (p)", valueLabel: rateLabel, slider: rateSlider))
+        inner.addArrangedSubview(makeSliderRow(label: "Trials / Sample Window", valueLabel: trialLabel, slider: trialSlider))
+        inner.addArrangedSubview(makeSliderRow(label: "Poisson λ", valueLabel: lambdaLabel, slider: lambdaSlider))
+
+        distributionChart.translatesAutoresizingMaskIntoConstraints = false
+        distributionChart.heightAnchor.constraint(equalToConstant: 180).isActive = true
+        inner.addArrangedSubview(distributionChart)
+
+        distributionSummary.font = AppTheme.Typeface.caption(12)
+        distributionSummary.textColor = AppTheme.Pigment.mistGray
+        distributionSummary.numberOfLines = 0
+        inner.addArrangedSubview(distributionSummary)
+
+        contentStack.addArrangedSubview(card.0)
+    }
+
+    private func setupPityResearchWorkbench() {
+        contentStack.addArrangedSubview(makeSectionHeader("Pity Model Research", subtitle: "Tune pity curves, compare baseline vs pity, and inspect right-tail compression."))
+        let card = makeCardContainer()
+        let inner = card.1
+
+        configureRateSlider(pityRateSlider, min: 0.002, max: 0.08, value: Float(AppStorage.shared.ssrRate), color: AppTheme.Pigment.ssrGold)
+        pityRateSlider.addTarget(self, action: #selector(refreshAll), for: .valueChanged)
+        pityIncrementSlider.minimumValue = 0.005
+        pityIncrementSlider.maximumValue = 0.12
+        pityIncrementSlider.value = 0.06
+        pityIncrementSlider.minimumTrackTintColor = AppTheme.Pigment.nebulaViolet
+        pityIncrementSlider.maximumTrackTintColor = AppTheme.Pigment.crystalBorder
+        pityIncrementSlider.addTarget(self, action: #selector(refreshAll), for: .valueChanged)
+
+        softPityStepper.minimumValue = 10
+        softPityStepper.maximumValue = 150
+        softPityStepper.stepValue = 1
+        softPityStepper.value = Double(AppStorage.shared.softPity)
+        softPityStepper.addTarget(self, action: #selector(refreshAll), for: .valueChanged)
+
+        hardPityStepper.minimumValue = 20
+        hardPityStepper.maximumValue = 200
+        hardPityStepper.stepValue = 1
+        hardPityStepper.value = Double(AppStorage.shared.hardPity)
+        hardPityStepper.addTarget(self, action: #selector(refreshAll), for: .valueChanged)
+
+        inner.addArrangedSubview(makeSliderRow(label: "Base SSR Rate", valueLabel: pityRateLabel, slider: pityRateSlider))
+        inner.addArrangedSubview(makeStepperRow(label: "Soft Pity Start", valueLabel: softPityLabel, stepper: softPityStepper))
+        inner.addArrangedSubview(makeStepperRow(label: "Hard Pity", valueLabel: hardPityLabel, stepper: hardPityStepper))
+        inner.addArrangedSubview(makeSliderRow(label: "Soft Pity Increment", valueLabel: pityIncrementLabel, slider: pityIncrementSlider))
+
+        pityCurveChart.translatesAutoresizingMaskIntoConstraints = false
+        pityCurveChart.heightAnchor.constraint(equalToConstant: 180).isActive = true
+        inner.addArrangedSubview(pityCurveChart)
+
+        pityCompareChart.translatesAutoresizingMaskIntoConstraints = false
+        pityCompareChart.heightAnchor.constraint(equalToConstant: 170).isActive = true
+        inner.addArrangedSubview(pityCompareChart)
+
+        curveSummary.font = AppTheme.Typeface.caption(12)
+        curveSummary.textColor = AppTheme.Pigment.mistGray
+        curveSummary.numberOfLines = 0
+        inner.addArrangedSubview(curveSummary)
+
+        contentStack.addArrangedSubview(card.0)
+    }
+
+    private func setupSingleVsTenSection() {
+        contentStack.addArrangedSubview(makeSectionHeader("Single vs Ten-Pull", subtitle: "Show players the same math in a more decision-oriented format."))
+        let card = makeCardContainer()
+        let inner = card.1
+
+        tenPullSummary.font = AppTheme.Typeface.body(12)
+        tenPullSummary.textColor = AppTheme.Pigment.glacierWhite
+        tenPullSummary.numberOfLines = 0
+        inner.addArrangedSubview(tenPullSummary)
+
+        contentStack.addArrangedSubview(card.0)
+    }
+
+    private func setupPlanVault() {
+        contentStack.addArrangedSubview(makeSectionHeader("Plan Vault & Reports", subtitle: "Save multiple pools, compare budget efficiency, and export a research summary."))
+        let card = makeCardContainer()
+        let inner = card.1
+
+        _ = configureSecondaryButton(saveCurrentPlanButton, title: "Save Current Defaults", action: #selector(saveCurrentDefaultsPlan))
+        _ = configureSecondaryButton(planAButton, title: "Select Plan A", action: #selector(selectPlanA))
+        _ = configureSecondaryButton(planBButton, title: "Select Plan B", action: #selector(selectPlanB))
+        let compareButton = configureSecondaryButton(UIButton(type: .system), title: "Compare Plans", action: #selector(comparePlans))
+        let shareButton = configureSecondaryButton(UIButton(type: .system), title: "Share Text Report", action: #selector(shareReport))
+
+        configureNumberField(compareBudgetField, placeholder: "Budget for comparison")
+        compareBudgetField.text = "100"
+
+        inner.addArrangedSubview(saveCurrentPlanButton)
+        inner.addArrangedSubview(planAButton)
+        inner.addArrangedSubview(planBButton)
+        inner.addArrangedSubview(compareBudgetField)
+        inner.addArrangedSubview(compareButton)
+
+        comparisonStack.axis = .vertical
+        comparisonStack.spacing = 8
+        inner.addArrangedSubview(comparisonStack)
+
+        reportLabel.font = AppTheme.Typeface.caption(12)
+        reportLabel.textColor = AppTheme.Pigment.mistGray
+        reportLabel.numberOfLines = 0
+        inner.addArrangedSubview(reportLabel)
+        inner.addArrangedSubview(shareButton)
+
+        contentStack.addArrangedSubview(card.0)
+    }
+
+    @objc private func distributionModeChanged() {
+        selectedMode = DistributionMode(rawValue: distributionSegment.selectedSegmentIndex) ?? .geometric
+        refreshDistributionSection()
+    }
+
+    @objc private func refreshAll() {
+        refreshDistributionSection()
+        refreshPitySection()
+        refreshSingleVsTenSection()
+    }
+
+    private func refreshDistributionSection() {
+        let rate = Double(rateSlider.value)
+        let trials = max(1, Int(trialSlider.value.rounded()))
+        let lambda = Double(lambdaSlider.value)
+
+        rateLabel.text = ProbabilityResearchKit.formatPercent(rate)
+        trialLabel.text = "\(trials)"
+        lambdaLabel.text = String(format: "%.1f", lambda)
+
+        switch selectedMode {
+        case .geometric:
+            let pmf = ProbabilityResearchKit.geometricPMF(rate: rate, maxTrials: min(trials, 12))
+            distributionChart.setEntries(pmf.enumerated().map { .init(label: "\($0.offset + 1)", value: $0.element, color: AppTheme.Pigment.auroraGreen) })
+            let p50 = ProbabilityResearchKit.drawsNeeded(rate: rate, targetProbability: 0.5)
+            distributionSummary.text = "Geometric first-success model. E[X] = \(String(format: "%.2f", 1 / rate)); P50 hit arrives around draw \(p50)."
+        case .binomial:
+            let dist = ProbabilityResearchKit.binomialDistribution(trials: trials, rate: rate)
+            let sampled = Array(dist.enumerated().prefix(10))
+            distributionChart.setEntries(sampled.map { .init(label: "\($0.offset)", value: $0.element, color: AppTheme.Pigment.prismaticBlue) })
+            distributionSummary.text = "Binomial model over \(trials) trials. Mean successes = np = \(String(format: "%.2f", Double(trials) * rate)). Useful for multi-copy targets and pack openings."
+        case .poisson:
+            let dist = ProbabilityResearchKit.poissonApproximation(lambda: lambda, maxK: 9)
+            distributionChart.setEntries(dist.enumerated().map { .init(label: "\($0.offset)", value: $0.element, color: AppTheme.Pigment.stellarPink) })
+            distributionSummary.text = "Poisson approximation with λ = \(String(format: "%.1f", lambda)). Helpful for rare-event approximations when trial count is large and p is small."
+        }
+    }
+
+    private func refreshPitySection() {
+        let baseRate = Double(pityRateSlider.value)
+        let softPity = Int(softPityStepper.value)
+        let hardPity = max(Int(hardPityStepper.value), softPity + 1)
+        if Int(hardPityStepper.value) != hardPity { hardPityStepper.value = Double(hardPity) }
+        let increment = Double(pityIncrementSlider.value)
+
+        pityRateLabel.text = ProbabilityResearchKit.formatPercent(baseRate)
+        softPityLabel.text = "\(softPity)"
+        hardPityLabel.text = "\(hardPity)"
+        pityIncrementLabel.text = ProbabilityResearchKit.formatPercent(increment)
+
+        let noPityCDF = ProbabilityResearchKit.firstSuccessCDF(baseRate: baseRate, hardPity: hardPity, softPity: softPity, pityEnabled: false, maxPulls: hardPity)
+        let pityCDF = ProbabilityResearchKit.firstSuccessCDF(baseRate: baseRate, hardPity: hardPity, softPity: softPity, pityEnabled: true, increment: increment, maxPulls: hardPity)
+        pityCurveChart.setData(pityCDF)
+
+        let noPityStats = ProbabilityResearchKit.quantiles(from: noPityCDF)
+        let pityStats = ProbabilityResearchKit.quantiles(from: pityCDF)
+        pityCompareChart.setEntries([
+            .init(label: "No Pity EV", value: min(noPityStats.expectedPulls / Double(hardPity), 1), color: AppTheme.Pigment.mistGray),
+            .init(label: "Pity EV", value: min(pityStats.expectedPulls / Double(hardPity), 1), color: AppTheme.Pigment.nebulaViolet),
+            .init(label: "No Pity P90", value: min(Double(noPityStats.p90) / Double(hardPity), 1), color: AppTheme.Pigment.prismaticBlue.withAlphaComponent(0.45)),
+            .init(label: "Pity P90", value: min(Double(pityStats.p90) / Double(hardPity), 1), color: AppTheme.Pigment.ssrGold),
+        ])
+
+        let preSoftProbability = pityCDF[max(0, min(softPity - 1, pityCDF.count - 1))]
+        curveSummary.text = "Custom rate curve editor: before soft pity, success chance follows the base rate; after draw \(softPity), it increases by \(ProbabilityResearchKit.formatPercent(increment)) per pull until hard pity at \(hardPity).\n\nBy draw \(softPity), cumulative hit rate is \(ProbabilityResearchKit.formatPercent(preSoftProbability)). Pity compresses the right tail from P90 \(noPityStats.p90) → \(pityStats.p90), which makes unlucky runs more predictable for players and more controllable for system designers."
+    }
+
+    private func refreshSingleVsTenSection() {
+        let rate = Double(pityRateSlider.value)
+        let single = ProbabilityResearchKit.probabilityOfAtLeastOneHit(rate: rate, draws: 1)
+        let ten = ProbabilityResearchKit.probabilityOfAtLeastOneHit(rate: rate, draws: 10)
+        let p90 = ProbabilityResearchKit.drawsNeeded(rate: rate, targetProbability: 0.9)
+        tenPullSummary.text = "Single draw hit rate: \(ProbabilityResearchKit.formatPercent(single)). Ten-pull hit rate: \(ProbabilityResearchKit.formatPercent(ten)).\n\nThe expected value per draw stays identical in an independent model, but ten-pulls feel better because the session-level success probability is much higher. To reach 90% certainty without pity, players need about \(p90) draws at the current base rate."
+    }
+
+    @objc private func saveCurrentDefaultsPlan() {
+        let alert = UIAlertController(title: "Save Current Defaults", message: "Store the current Gacha settings as a reusable plan.", preferredStyle: .alert)
+        alert.addTextField { $0.placeholder = "Plan name"; $0.text = "Pool \(AppStorage.shared.savedGachaPlans().count + 1)" }
+        alert.addTextField { $0.placeholder = "Cost per pull"; $0.keyboardType = .decimalPad }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
+            let name = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cost = Double(alert.textFields?.dropFirst().first?.text ?? "") ?? 0
+            let plan = GachaPlan(
+                name: name?.isEmpty == false ? name! : "Untitled Plan",
+                ssrRate: AppStorage.shared.ssrRate,
+                srRate: AppStorage.shared.srRate,
+                hardPity: AppStorage.shared.hardPity,
+                softPity: AppStorage.shared.softPity,
+                pityEnabled: AppStorage.shared.pityEnabled,
+                costPerPull: cost
+            )
+            AppStorage.shared.appendGachaPlan(plan)
+            Haptics.shared.successPulse()
+        })
+        present(alert, animated: true)
+    }
+
+    @objc private func selectPlanA() { selectPlan(side: "A") }
+    @objc private func selectPlanB() { selectPlan(side: "B") }
+
+    private func selectPlan(side: String) {
+        let plans = AppStorage.shared.savedGachaPlans()
+        guard !plans.isEmpty else {
+            reportLabel.text = "No saved plans yet. Save current defaults first."
+            return
+        }
+        let sheet = UIAlertController(title: "Select Plan \(side)", message: nil, preferredStyle: .actionSheet)
+        for plan in plans {
+            sheet.addAction(UIAlertAction(title: plan.name, style: .default) { _ in
+                if side == "A" {
+                    self.selectedPlanA = plan
+                    self.planAButton.setTitle("Plan A: \(plan.name)", for: .normal)
+                } else {
+                    self.selectedPlanB = plan
+                    self.planBButton.setTitle("Plan B: \(plan.name)", for: .normal)
+                }
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    @objc private func comparePlans() {
+        comparisonStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        guard let planA = selectedPlanA, let planB = selectedPlanB else {
+            reportLabel.text = "Choose two plans to compare budget efficiency and target acquisition cost."
+            return
+        }
+        let budget = Double(compareBudgetField.text ?? "") ?? 100
+        let result = ProbabilityResearchKit.compare(planA: planA, planB: planB, budget: budget)
+        comparisonStack.addArrangedSubview(makeComparisonRow(metric: "Budget hit rate", aValue: ProbabilityResearchKit.formatPercent(result.hitRateA), bValue: ProbabilityResearchKit.formatPercent(result.hitRateB)))
+        comparisonStack.addArrangedSubview(makeComparisonRow(metric: "Expected pulls", aValue: String(format: "%.1f", result.expectedPullsA), bValue: String(format: "%.1f", result.expectedPullsB)))
+        comparisonStack.addArrangedSubview(makeComparisonRow(metric: "Expected cost", aValue: ProbabilityResearchKit.formatCurrency(result.expectedCostA), bValue: ProbabilityResearchKit.formatCurrency(result.expectedCostB)))
+        reportLabel.text = ProbabilityResearchKit.report(for: result)
+    }
+
+    @objc private func shareReport() {
+        guard let text = reportLabel.text, !text.isEmpty else { return }
+        present(UIActivityViewController(activityItems: [text], applicationActivities: nil), animated: true)
+    }
+
+    private func makeCardContainer() -> (GlowCard, UIStackView) {
         let card = GlowCard()
-        let inner = UIStackView()
-        inner.axis = .vertical
-        inner.spacing = 14
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(inner)
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(stack)
         NSLayoutConstraint.activate([
-            inner.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
-            inner.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
-            inner.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            inner.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
         ])
-
-        // Rate slider row
-        calcRateLabel.font = AppTheme.Typeface.mono(13)
-        calcRateLabel.textColor = AppTheme.Pigment.nebulaViolet
-        calcRateSlider.minimumValue = 0.001
-        calcRateSlider.maximumValue = 0.20
-        calcRateSlider.value = Float(calcRate)
-        calcRateSlider.minimumTrackTintColor = AppTheme.Pigment.nebulaViolet
-        calcRateSlider.maximumTrackTintColor = AppTheme.Pigment.crystalBorder
-        calcRateSlider.addTarget(self, action: #selector(calcRateChanged), for: .valueChanged)
-        updateCalcRateLabel()
-        inner.addArrangedSubview(makeSliderRow(label: "Drop Rate (p)", valueLabel: calcRateLabel, slider: calcRateSlider))
-
-        // Optional cost field
-        let costRow = UIStackView()
-        costRow.axis = .vertical
-        costRow.spacing = 6
-        let costHdr = UIStackView()
-        costHdr.axis = .horizontal
-        costHdr.distribution = .equalSpacing
-        let costTitleLbl = makeLabel("Cost Per Trial (optional)", font: AppTheme.Typeface.body(13), color: AppTheme.Pigment.mistGray)
-        let costUnitLbl  = makeLabel("units / gems / currency", font: AppTheme.Typeface.caption(11), color: AppTheme.Pigment.mistGray)
-        costHdr.addArrangedSubview(costTitleLbl)
-        costHdr.addArrangedSubview(costUnitLbl)
-        costRow.addArrangedSubview(costHdr)
-        costTextField.placeholder = "e.g. 160   or   0.99"
-        costTextField.font = AppTheme.Typeface.mono(14)
-        costTextField.textColor = AppTheme.Pigment.glacierWhite
-        costTextField.keyboardType = .decimalPad
-        costTextField.keyboardAppearance = .dark
-        costTextField.backgroundColor = AppTheme.Pigment.crystalBorder.withAlphaComponent(0.3)
-        costTextField.layer.cornerRadius = 8
-        costTextField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 0))
-        costTextField.leftViewMode = .always
-        costTextField.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        costRow.addArrangedSubview(costTextField)
-        inner.addArrangedSubview(costRow)
-
-        // Calculate button
-        calcBtn.setTitle("Calculate", for: .normal)
-        calcBtn.titleLabel?.font = AppTheme.Typeface.headline(14)
-        calcBtn.gradientColors = [AppTheme.Pigment.nebulaViolet, UIColor(hex: "#3B1A7A")]
-        calcBtn.heightAnchor.constraint(equalToConstant: 48).isActive = true
-        calcBtn.addTarget(self, action: #selector(runCostCalculation), for: .touchUpInside)
-        inner.addArrangedSubview(calcBtn)
-
-        contentStack.addArrangedSubview(card)
-
-        // Results card (initially hidden)
-        setupCalcResultsCard()
+        return (card, stack)
     }
 
-    private func setupCalcResultsCard() {
-        calcResultsCard.isHidden = true
-        let inner = UIStackView()
-        inner.axis = .vertical
-        inner.spacing = 14
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        calcResultsCard.addSubview(inner)
-        NSLayoutConstraint.activate([
-            inner.topAnchor.constraint(equalTo: calcResultsCard.topAnchor, constant: 16),
-            inner.bottomAnchor.constraint(equalTo: calcResultsCard.bottomAnchor, constant: -16),
-            inner.leadingAnchor.constraint(equalTo: calcResultsCard.leadingAnchor, constant: 16),
-            inner.trailingAnchor.constraint(equalTo: calcResultsCard.trailingAnchor, constant: -16),
-        ])
-
-        let resultTitle = makeLabel("Results", font: AppTheme.Typeface.headline(14), color: AppTheme.Pigment.glacierWhite)
-        inner.addArrangedSubview(resultTitle)
-
-        // Trials row
-        let trialsRow = UIStackView()
-        trialsRow.axis = .horizontal
-        trialsRow.distribution = .fillEqually
-        trialsRow.spacing = 8
-        for (lbl, val) in [("E[Trials]", expPullsLbl), ("P50", p50Lbl), ("P90", p90Lbl), ("P99", p99Lbl)] {
-            let cell = makeResultCell(header: lbl, valueLabel: val, color: AppTheme.Pigment.nebulaViolet)
-            trialsRow.addArrangedSubview(cell)
-        }
-        inner.addArrangedSubview(trialsRow)
-
-        // Cost row (shown only when cost entered)
-        costRowView.axis = .horizontal
-        costRowView.distribution = .fillEqually
-        costRowView.spacing = 8
-        costRowView.isHidden = true
-        expCostLbl.font = AppTheme.Typeface.mono(14)
-        expCostLbl.textColor = AppTheme.Pigment.ssrGold
-        expCostLbl.textAlignment = .center
-        let costLabels = [("E[Cost]", expCostLbl)]
-        let staticCostLabels: [(String, UILabel)] = [
-            ("E[Cost]", expCostLbl)
-        ]
-        for (title, valueLbl) in staticCostLabels {
-            let cell = makeResultCell(header: title, valueLabel: valueLbl, color: AppTheme.Pigment.ssrGold)
-            costRowView.addArrangedSubview(cell)
-        }
-        inner.addArrangedSubview(costRowView)
-        let _ = costLabels  // suppress warning
-
-        inner.addArrangedSubview(makeDivider())
-
-        // CDF chart
-        let chartHeader = UIStackView()
-        chartHeader.axis = .horizontal
-        chartHeader.spacing = 4
-        let chartTitle = makeLabel("Cumulative Probability Curve", font: AppTheme.Typeface.caption(11), color: AppTheme.Pigment.mistGray)
-        chartHeader.addArrangedSubview(chartTitle)
-        inner.addArrangedSubview(chartHeader)
-
-        cdfChart.backgroundColor = .clear
-        cdfChart.translatesAutoresizingMaskIntoConstraints = false
-        cdfChart.heightAnchor.constraint(equalToConstant: 140).isActive = true
-        inner.addArrangedSubview(cdfChart)
-
-        let legend = UILabel()
-        legend.text = "Dashed markers: P50 (green) · P90 (gold) · P99 (red)"
-        legend.font = AppTheme.Typeface.caption(10)
-        legend.textColor = AppTheme.Pigment.mistGray
-        legend.textAlignment = .center
-        inner.addArrangedSubview(legend)
-
-        contentStack.addArrangedSubview(calcResultsCard)
-    }
-
-    private func makeResultCell(header: String, valueLabel: UILabel, color: UIColor) -> UIView {
-        let v = UIView()
-        v.backgroundColor = color.withAlphaComponent(0.08)
-        v.layer.cornerRadius = 8
-        v.layer.borderWidth = 1
-        v.layer.borderColor = color.withAlphaComponent(0.25).cgColor
+    private func makeSectionHeader(_ title: String, subtitle: String) -> UIView {
         let stack = UIStackView()
         stack.axis = .vertical
         stack.spacing = 4
-        stack.alignment = .center
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        let hdr = UILabel()
-        hdr.text = header
-        hdr.font = AppTheme.Typeface.caption(10)
-        hdr.textColor = AppTheme.Pigment.mistGray
-        hdr.textAlignment = .center
-        valueLabel.font = AppTheme.Typeface.mono(15)
-        valueLabel.textColor = color
-        valueLabel.textAlignment = .center
-        valueLabel.text = "—"
-        stack.addArrangedSubview(hdr)
-        stack.addArrangedSubview(valueLabel)
-        v.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: v.topAnchor, constant: 10),
-            stack.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -10),
-            stack.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 4),
-            stack.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -4),
-        ])
-        return v
+        let titleLabel = makeLabel(title, font: AppTheme.Typeface.headline(16), color: AppTheme.Pigment.glacierWhite)
+        let subtitleLabel = makeLabel(subtitle, font: AppTheme.Typeface.caption(12), color: AppTheme.Pigment.mistGray)
+        subtitleLabel.numberOfLines = 0
+        stack.addArrangedSubview(titleLabel)
+        stack.addArrangedSubview(subtitleLabel)
+        return stack
     }
 
-    // MARK: - A/B Comparator
-    private func setupComparator() {
-        contentStack.addArrangedSubview(makeSectionHeader("A/B Configuration Comparator",
-            subtitle: "Compare two drop rate designs using exact expected value computation."))
-
-        let outerCard = GlowCard()
-        let outer = UIStackView()
-        outer.axis = .vertical
-        outer.spacing = 14
-        outer.translatesAutoresizingMaskIntoConstraints = false
-        outerCard.addSubview(outer)
-        NSLayoutConstraint.activate([
-            outer.topAnchor.constraint(equalTo: outerCard.topAnchor, constant: 16),
-            outer.bottomAnchor.constraint(equalTo: outerCard.bottomAnchor, constant: -16),
-            outer.leadingAnchor.constraint(equalTo: outerCard.leadingAnchor, constant: 16),
-            outer.trailingAnchor.constraint(equalTo: outerCard.trailingAnchor, constant: -16),
-        ])
-
-        outer.addArrangedSubview(makeConfigBlock(
-            label: "Config A", color: AppTheme.Pigment.nebulaViolet,
-            rateLabel: configARateLbl, rateSlider: configARateSlider,
-            pitySwitch: configAPitySwitch, hardPityLbl: configAHardPityLbl,
-            hardPityStepper: configAHardPityStepper,
-            rateSelector: #selector(configARateChanged),
-            pitySelector: #selector(configAPityChanged),
-            pityStepSelector: #selector(configAHardPityChanged),
-            rate: configARate, hardPity: configAHardPity, pityOn: configAPityOn
-        ))
-
-        outer.addArrangedSubview(makeDivider())
-
-        outer.addArrangedSubview(makeConfigBlock(
-            label: "Config B", color: AppTheme.Pigment.stellarPink,
-            rateLabel: configBRateLbl, rateSlider: configBRateSlider,
-            pitySwitch: configBPitySwitch, hardPityLbl: configBHardPityLbl,
-            hardPityStepper: configBHardPityStepper,
-            rateSelector: #selector(configBRateChanged),
-            pitySelector: #selector(configBPityChanged),
-            pityStepSelector: #selector(configBHardPityChanged),
-            rate: configBRate, hardPity: configBHardPity, pityOn: configBPityOn
-        ))
-
-        compareBtn.setTitle("Run Comparison", for: .normal)
-        compareBtn.titleLabel?.font = AppTheme.Typeface.headline(14)
-        compareBtn.gradientColors = [AppTheme.Pigment.nebulaViolet, AppTheme.Pigment.stellarPink]
-        compareBtn.heightAnchor.constraint(equalToConstant: 48).isActive = true
-        compareBtn.addTarget(self, action: #selector(runComparison), for: .touchUpInside)
-        outer.addArrangedSubview(compareBtn)
-
-        contentStack.addArrangedSubview(outerCard)
-        setupCompareResultsCard()
+    private func makeLabel(_ text: String, font: UIFont, color: UIColor) -> UILabel {
+        let label = UILabel()
+        label.setEmojiSafeText(text, font: font, color: color)
+        return label
     }
 
-    private func makeConfigBlock(label: String, color: UIColor,
-                                  rateLabel: UILabel, rateSlider: UISlider,
-                                  pitySwitch: UISwitch, hardPityLbl: UILabel,
-                                  hardPityStepper: UIStepper,
-                                  rateSelector: Selector, pitySelector: Selector, pityStepSelector: Selector,
-                                  rate: Double, hardPity: Int, pityOn: Bool) -> UIView {
-        let s = UIStackView()
-        s.axis = .vertical
-        s.spacing = 10
-
-        let headerLbl = makeLabel(label, font: AppTheme.Typeface.headline(13), color: color)
-        s.addArrangedSubview(headerLbl)
-
-        // Rate
-        rateLabel.font = AppTheme.Typeface.mono(12)
-        rateLabel.textColor = color
-        rateSlider.minimumValue = 0.001
-        rateSlider.maximumValue = 0.20
-        rateSlider.value = Float(rate)
-        rateSlider.minimumTrackTintColor = color
-        rateSlider.maximumTrackTintColor = AppTheme.Pigment.crystalBorder
-        rateSlider.addTarget(self, action: rateSelector, for: .valueChanged)
-        updateRateLabel(rateLabel, rate: rate)
-        s.addArrangedSubview(makeSliderRow(label: "Drop Rate", valueLabel: rateLabel, slider: rateSlider))
-
-        // Pity row
-        let pityRow = UIStackView()
-        pityRow.axis = .horizontal
-        pityRow.spacing = 10
-        pityRow.alignment = .center
-        let pityLbl = makeLabel("Guarantee Threshold", font: AppTheme.Typeface.body(12), color: AppTheme.Pigment.mistGray)
-        pitySwitch.isOn = pityOn
-        pitySwitch.onTintColor = color
-        pitySwitch.addTarget(self, action: pitySelector, for: .valueChanged)
-        pityRow.addArrangedSubview(pityLbl)
-        pityRow.addArrangedSubview(UIView())  // spacer
-        pityRow.addArrangedSubview(pitySwitch)
-        s.addArrangedSubview(pityRow)
-
-        // Hard pity stepper
-        hardPityLbl.font = AppTheme.Typeface.mono(12)
-        hardPityLbl.textColor = color
-        hardPityLbl.text = "at \(hardPity) trials"
-        hardPityStepper.minimumValue = 10
-        hardPityStepper.maximumValue = 200
-        hardPityStepper.stepValue = 5
-        hardPityStepper.value = Double(hardPity)
-        hardPityStepper.tintColor = color
-        hardPityStepper.addTarget(self, action: pityStepSelector, for: .valueChanged)
-        hardPityStepper.isEnabled = pityOn
-
-        let stepRow = UIStackView(arrangedSubviews: [
-            makeLabel("Max Trials", font: AppTheme.Typeface.body(12), color: AppTheme.Pigment.mistGray),
-            UIView(),
-            hardPityLbl, hardPityStepper
-        ])
-        stepRow.axis = .horizontal
-        stepRow.spacing = 8
-        stepRow.alignment = .center
-        s.addArrangedSubview(stepRow)
-        return s
-    }
-
-    private func setupCompareResultsCard() {
-        compareResultsCard.isHidden = true
-        let inner = UIStackView()
-        inner.axis = .vertical
-        inner.spacing = 12
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        compareResultsCard.addSubview(inner)
-        NSLayoutConstraint.activate([
-            inner.topAnchor.constraint(equalTo: compareResultsCard.topAnchor, constant: 16),
-            inner.bottomAnchor.constraint(equalTo: compareResultsCard.bottomAnchor, constant: -16),
-            inner.leadingAnchor.constraint(equalTo: compareResultsCard.leadingAnchor, constant: 16),
-            inner.trailingAnchor.constraint(equalTo: compareResultsCard.trailingAnchor, constant: -16),
-        ])
-
-        let title = makeLabel("Comparison Results", font: AppTheme.Typeface.headline(14), color: AppTheme.Pigment.glacierWhite)
-        inner.addArrangedSubview(title)
-
-        // Color legend
-        let legendRow = UIStackView()
-        legendRow.axis = .horizontal
-        legendRow.spacing = 16
-        let legA = makeColorLegend("Config A", color: AppTheme.Pigment.nebulaViolet)
-        let legB = makeColorLegend("Config B", color: AppTheme.Pigment.stellarPink)
-        legendRow.addArrangedSubview(legA)
-        legendRow.addArrangedSubview(legB)
-        legendRow.addArrangedSubview(UIView())
-        inner.addArrangedSubview(legendRow)
-
-        inner.addArrangedSubview(makeDivider())
-
-        // Table
-        compareTableStack.axis = .vertical
-        compareTableStack.spacing = 0
-        inner.addArrangedSubview(compareTableStack)
-
-        inner.addArrangedSubview(makeDivider())
-
-        // Chart
-        let chartLbl = makeLabel("E[X] vs P90 Trials — Shorter is faster for the player",
-                                  font: AppTheme.Typeface.caption(10), color: AppTheme.Pigment.mistGray)
-        chartLbl.numberOfLines = 0
-        inner.addArrangedSubview(chartLbl)
-        compareChart.backgroundColor = .clear
-        compareChart.translatesAutoresizingMaskIntoConstraints = false
-        compareChart.heightAnchor.constraint(equalToConstant: 120).isActive = true
-        inner.addArrangedSubview(compareChart)
-
-        contentStack.addArrangedSubview(compareResultsCard)
-    }
-
-    // MARK: - Math Reference
-    private func setupMathReference() {
-        contentStack.addArrangedSubview(makeSectionHeader("Probability Reference",
-            subtitle: "Core formulae used in all simulations."))
-
-        let card = GlowCard()
-        let inner = UIStackView()
-        inner.axis = .vertical
-        inner.spacing = 16
-        inner.translatesAutoresizingMaskIntoConstraints = false
-        card.addSubview(inner)
-        NSLayoutConstraint.activate([
-            inner.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
-            inner.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
-            inner.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            inner.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-        ])
-
-        let formulas: [(String, String, String)] = [
-            ("Geometric Distribution PMF",
-             "P(X = k) = (1−p)^(k−1) · p",
-             "Probability of first success on exactly the k-th trial, where p is the success rate."),
-            ("Expected Value",
-             "E[X] = 1 / p",
-             "Average number of trials needed for one success. For p=0.6%, E[X]=166.7 trials."),
-            ("Cumulative Distribution (CDF)",
-             "P(X ≤ k) = 1 − (1−p)^k",
-             "Probability of success within k trials. Use to find P50, P90, P99 milestones."),
-            ("kth Percentile (no pity)",
-             "k = ⌈ln(1 − %ile) / ln(1−p)⌉",
-             "Inverse CDF. Tells you at which trial you hit a given cumulative probability."),
-        ]
-
-        for (title, formula, explanation) in formulas {
-            let block = UIStackView()
-            block.axis = .vertical
-            block.spacing = 6
-            let t = makeLabel(title, font: AppTheme.Typeface.caption(11), color: AppTheme.Pigment.mistGray)
-            let f = makeLabel(formula, font: AppTheme.Typeface.mono(14), color: AppTheme.Pigment.auroraGreen)
-            f.numberOfLines = 0
-            let e = makeLabel(explanation, font: AppTheme.Typeface.caption(12), color: AppTheme.Pigment.mistGray)
-            e.numberOfLines = 0
-            block.addArrangedSubview(t)
-            block.addArrangedSubview(f)
-            block.addArrangedSubview(e)
-            inner.addArrangedSubview(block)
-            inner.addArrangedSubview(makeDivider())
-        }
-
-        // Gambler's Fallacy warning (prominent)
-        let warningCard = UIView()
-        warningCard.backgroundColor = AppTheme.Pigment.novaRed.withAlphaComponent(0.1)
-        warningCard.layer.cornerRadius = 10
-        warningCard.layer.borderWidth = 1
-        warningCard.layer.borderColor = AppTheme.Pigment.novaRed.withAlphaComponent(0.4).cgColor
-        let warnStack = UIStackView()
-        warnStack.axis = .vertical
-        warnStack.spacing = 8
-        warnStack.translatesAutoresizingMaskIntoConstraints = false
-        warningCard.addSubview(warnStack)
-        NSLayoutConstraint.activate([
-            warnStack.topAnchor.constraint(equalTo: warningCard.topAnchor, constant: 14),
-            warnStack.bottomAnchor.constraint(equalTo: warningCard.bottomAnchor, constant: -14),
-            warnStack.leadingAnchor.constraint(equalTo: warningCard.leadingAnchor, constant: 14),
-            warnStack.trailingAnchor.constraint(equalTo: warningCard.trailingAnchor, constant: -14),
-        ])
-        let warnTitle = UIStackView()
-        warnTitle.axis = .horizontal
-        warnTitle.spacing = 8
-        warnTitle.alignment = .center
-        let warnCfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)
-        let warnIco = UIImageView(image: UIImage(systemName: "exclamationmark.triangle.fill", withConfiguration: warnCfg))
-        warnIco.tintColor = AppTheme.Pigment.novaRed
-        warnIco.contentMode = .scaleAspectFit
-        warnIco.widthAnchor.constraint(equalToConstant: 20).isActive = true
-        let warnLbl = makeLabel("Gambler's Fallacy", font: AppTheme.Typeface.headline(14), color: AppTheme.Pigment.novaRed)
-        warnTitle.addArrangedSubview(warnIco)
-        warnTitle.addArrangedSubview(warnLbl)
-        warnStack.addArrangedSubview(warnTitle)
-        let warnBody = makeLabel(
-            "Each trial is a statistically independent event. A prior losing streak does NOT increase the probability of the next trial succeeding (except where a pity/guarantee threshold is mathematically defined). Believing otherwise is the Gambler's Fallacy.",
-            font: AppTheme.Typeface.body(13), color: AppTheme.Pigment.mistGray)
-        warnBody.numberOfLines = 0
-        warnStack.addArrangedSubview(warnBody)
-        inner.addArrangedSubview(warningCard)
-
-        contentStack.addArrangedSubview(card)
-    }
-
-    // MARK: - Calc actions
-    @objc private func calcRateChanged() {
-        calcRate = Double(calcRateSlider.value)
-        updateCalcRateLabel()
-        Haptics.shared.selectItem()
-    }
-
-    @objc private func runCostCalculation() {
-        view.endEditing(true)
-        calcCostPerPull = Double(costTextField.text ?? "") ?? 0
-        let p = calcRate
-
-        let expectedPulls = 1.0 / p
-        let p50 = Self.percentileGeom(target: 0.50, p: p)
-        let p90 = Self.percentileGeom(target: 0.90, p: p)
-        let p99 = Self.percentileGeom(target: 0.99, p: p)
-
-        expPullsLbl.text = String(format: "%.0f", expectedPulls)
-        p50Lbl.text = "\(p50)"
-        p90Lbl.text = "\(p90)"
-        p99Lbl.text = "\(p99)"
-
-        if calcCostPerPull > 0 {
-            expCostLbl.text = String(format: "%.0f", expectedPulls * calcCostPerPull)
-            costRowView.isHidden = false
-        } else {
-            costRowView.isHidden = true
-        }
-
-        // Build CDF data
-        let maxK = p99 + max(10, p99 / 5)
-        var cdfData: [Double] = []
-        let step = max(1, maxK / 120)
-        for k in stride(from: 1, through: maxK, by: step) {
-            let prob = 1 - pow(1 - p, Double(k))
-            cdfData.append(min(1.0, prob))
-        }
-        cdfChart.setData(cdfData)
-
-        Haptics.shared.successPulse()
-        calcBtn.animatePulse()
-        calcResultsCard.isHidden = false
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self = self else { return }
-            let offset = CGPoint(x: 0, y: self.calcResultsCard.frame.minY - 16)
-            self.scrollView.setContentOffset(offset, animated: true)
-        }
-    }
-
-    // MARK: - Comparator actions
-    @objc private func configARateChanged() {
-        configARate = Double(configARateSlider.value)
-        updateRateLabel(configARateLbl, rate: configARate)
-        Haptics.shared.selectItem()
-    }
-    @objc private func configAPityChanged() {
-        configAPityOn = configAPitySwitch.isOn
-        configAHardPityStepper.isEnabled = configAPityOn
-    }
-    @objc private func configAHardPityChanged() {
-        configAHardPity = Int(configAHardPityStepper.value)
-        configASoftPity = max(1, configAHardPity - 16)
-        configAHardPityLbl.text = "at \(configAHardPity) trials"
-    }
-    @objc private func configBRateChanged() {
-        configBRate = Double(configBRateSlider.value)
-        updateRateLabel(configBRateLbl, rate: configBRate)
-        Haptics.shared.selectItem()
-    }
-    @objc private func configBPityChanged() {
-        configBPityOn = configBPitySwitch.isOn
-        configBHardPityStepper.isEnabled = configBPityOn
-    }
-    @objc private func configBHardPityChanged() {
-        configBHardPity = Int(configBHardPityStepper.value)
-        configBSoftPity = max(1, configBHardPity - 16)
-        configBHardPityLbl.text = "at \(configBHardPity) trials"
-    }
-
-    @objc private func runComparison() {
-        view.endEditing(true)
-        Haptics.shared.tapHeavy()
-        compareBtn.animatePulse()
-
-        let aExp = Self.expectedPullsWithPity(rate: configARate, hardPity: configAHardPity, softPity: configASoftPity, pityEnabled: configAPityOn)
-        let aP50 = Self.percentileWithPity(target: 0.50, rate: configARate, hardPity: configAHardPity, softPity: configASoftPity, pityEnabled: configAPityOn)
-        let aP90 = Self.percentileWithPity(target: 0.90, rate: configARate, hardPity: configAHardPity, softPity: configASoftPity, pityEnabled: configAPityOn)
-        let aP99 = Self.percentileWithPity(target: 0.99, rate: configARate, hardPity: configAHardPity, softPity: configASoftPity, pityEnabled: configAPityOn)
-
-        let bExp = Self.expectedPullsWithPity(rate: configBRate, hardPity: configBHardPity, softPity: configBSoftPity, pityEnabled: configBPityOn)
-        let bP50 = Self.percentileWithPity(target: 0.50, rate: configBRate, hardPity: configBHardPity, softPity: configBSoftPity, pityEnabled: configBPityOn)
-        let bP90 = Self.percentileWithPity(target: 0.90, rate: configBRate, hardPity: configBHardPity, softPity: configBSoftPity, pityEnabled: configBPityOn)
-        let bP99 = Self.percentileWithPity(target: 0.99, rate: configBRate, hardPity: configBHardPity, softPity: configBSoftPity, pityEnabled: configBPityOn)
-
-        // Build table
-        compareTableStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        compareTableStack.addArrangedSubview(makeTableHeaderRow())
-        let rows: [(String, String, String)] = [
-            ("E[Trials]",  String(format: "%.1f", aExp), String(format: "%.1f", bExp)),
-            ("P50 Trials", "\(aP50)",                    "\(bP50)"),
-            ("P90 Trials", "\(aP90)",                    "\(bP90)"),
-            ("P99 Trials", "\(aP99)",                    "\(bP99)"),
-            ("Max Guarantee", configAPityOn ? "\(configAHardPity)" : "None", configBPityOn ? "\(configBHardPity)" : "None"),
-        ]
-        let better = aExp < bExp  // Config A is better for player if fewer expected trials
-        for (i, (metric, aVal, bVal)) in rows.enumerated() {
-            compareTableStack.addArrangedSubview(makeTableRow(metric: metric, aVal: aVal, bVal: bVal, rowIndex: i))
-        }
-        let _ = better
-
-        // Chart
-        let maxE = max(aExp, bExp)
-        compareChart.setEntries([
-            .init(label: "A E[X]", value: aExp / maxE, color: AppTheme.Pigment.nebulaViolet),
-            .init(label: "B E[X]", value: bExp / maxE, color: AppTheme.Pigment.stellarPink),
-            .init(label: "A P90",  value: Double(aP90) / Double(max(aP90, bP90)), color: AppTheme.Pigment.nebulaViolet.withAlphaComponent(0.4)),
-            .init(label: "B P90",  value: Double(bP90) / Double(max(aP90, bP90)), color: AppTheme.Pigment.stellarPink.withAlphaComponent(0.4)),
-        ])
-
-        compareResultsCard.isHidden = false
-        Haptics.shared.successPulse()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self = self else { return }
-            let offset = CGPoint(x: 0, y: self.compareResultsCard.frame.minY - 16)
-            self.scrollView.setContentOffset(offset, animated: true)
-        }
-    }
-
-    private func makeTableHeaderRow() -> UIView {
-        let row = makeTableRow(metric: "Metric", aVal: "Config A", bVal: "Config B", rowIndex: -1)
-        row.backgroundColor = AppTheme.Pigment.crystalBorder.withAlphaComponent(0.3)
-        return row
-    }
-
-    private func makeTableRow(metric: String, aVal: String, bVal: String, rowIndex: Int) -> UIView {
-        let row = UIView()
-        if rowIndex >= 0 {
-            row.backgroundColor = rowIndex % 2 == 0
-                ? UIColor.clear
-                : AppTheme.Pigment.crystalBorder.withAlphaComponent(0.1)
-        }
+    private func makeSliderRow(label: String, valueLabel: UILabel, slider: UISlider) -> UIView {
         let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: row.topAnchor, constant: 8),
-            stack.bottomAnchor.constraint(equalTo: row.bottomAnchor, constant: -8),
-            stack.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -8),
-        ])
-        let mLbl = makeLabel(metric, font: AppTheme.Typeface.body(12), color: AppTheme.Pigment.mistGray)
-        mLbl.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let aLbl = makeLabel(aVal,   font: AppTheme.Typeface.mono(12), color: rowIndex == -1 ? AppTheme.Pigment.mistGray : AppTheme.Pigment.nebulaViolet)
-        aLbl.textAlignment = .center
-        aLbl.widthAnchor.constraint(equalToConstant: 72).isActive = true
-        let bLbl = makeLabel(bVal,   font: AppTheme.Typeface.mono(12), color: rowIndex == -1 ? AppTheme.Pigment.mistGray : AppTheme.Pigment.stellarPink)
-        bLbl.textAlignment = .center
-        bLbl.widthAnchor.constraint(equalToConstant: 72).isActive = true
-        stack.addArrangedSubview(mLbl)
-        stack.addArrangedSubview(aLbl)
-        stack.addArrangedSubview(bLbl)
+        stack.axis = .vertical
+        stack.spacing = 6
+        let top = UIStackView()
+        top.axis = .horizontal
+        top.distribution = .equalSpacing
+        top.addArrangedSubview(makeLabel(label, font: AppTheme.Typeface.body(13), color: AppTheme.Pigment.mistGray))
+        valueLabel.font = AppTheme.Typeface.mono(13)
+        valueLabel.textColor = AppTheme.Pigment.glacierWhite
+        top.addArrangedSubview(valueLabel)
+        stack.addArrangedSubview(top)
+        stack.addArrangedSubview(slider)
+        return stack
+    }
+
+    private func makeStepperRow(label: String, valueLabel: UILabel, stepper: UIStepper) -> UIView {
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.distribution = .equalSpacing
+        row.alignment = .center
+        row.addArrangedSubview(makeLabel(label, font: AppTheme.Typeface.body(13), color: AppTheme.Pigment.mistGray))
+        let right = UIStackView(arrangedSubviews: [valueLabel, stepper])
+        right.axis = .horizontal
+        right.spacing = 10
+        valueLabel.font = AppTheme.Typeface.mono(13)
+        valueLabel.textColor = AppTheme.Pigment.glacierWhite
+        row.addArrangedSubview(right)
         return row
     }
 
-    // MARK: - Keyboard
+    private func configureRateSlider(_ slider: UISlider, min: Float, max: Float, value: Float, color: UIColor) {
+        slider.minimumValue = min
+        slider.maximumValue = max
+        slider.value = value
+        slider.minimumTrackTintColor = color
+        slider.maximumTrackTintColor = AppTheme.Pigment.crystalBorder
+    }
+
+    private func configureSecondaryButton(_ button: UIButton, title: String, action: Selector) -> UIButton {
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(AppTheme.Pigment.glacierWhite, for: .normal)
+        button.backgroundColor = AppTheme.Pigment.crystalBorder.withAlphaComponent(0.5)
+        button.layer.cornerRadius = 10
+        button.titleLabel?.font = AppTheme.Typeface.body(13)
+        button.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
+    }
+
+    private func configureNumberField(_ field: UITextField, placeholder: String) {
+        field.placeholder = placeholder
+        field.font = AppTheme.Typeface.mono(13)
+        field.textColor = AppTheme.Pigment.glacierWhite
+        field.backgroundColor = AppTheme.Pigment.crystalBorder.withAlphaComponent(0.35)
+        field.layer.cornerRadius = 8
+        field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 1))
+        field.leftViewMode = .always
+        field.keyboardType = .decimalPad
+        field.heightAnchor.constraint(equalToConstant: 40).isActive = true
+    }
+
+    private func makeComparisonRow(metric: String, aValue: String, bValue: String) -> UIView {
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.distribution = .equalSpacing
+        row.addArrangedSubview(makeLabel(metric, font: AppTheme.Typeface.body(12), color: AppTheme.Pigment.mistGray))
+        row.addArrangedSubview(makeLabel(aValue, font: AppTheme.Typeface.mono(12), color: AppTheme.Pigment.nebulaViolet))
+        row.addArrangedSubview(makeLabel(bValue, font: AppTheme.Typeface.mono(12), color: AppTheme.Pigment.stellarPink))
+        return row
+    }
+
     private func setupKeyboardDismissal() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
     }
-    @objc private func dismissKeyboard() { view.endEditing(true) }
 
-    // MARK: - Helpers
-    private func updateCalcRateLabel() { updateRateLabel(calcRateLabel, rate: calcRate) }
-    private func updateRateLabel(_ lbl: UILabel, rate: Double) {
-        lbl.text = String(format: "%.2f%%", rate * 100)
-    }
-    private func makeSectionHeader(_ title: String, subtitle: String) -> UIView {
-        let s = UIStackView()
-        s.axis = .vertical
-        s.spacing = 4
-        let t = makeLabel(title, font: AppTheme.Typeface.headline(16), color: AppTheme.Pigment.glacierWhite)
-        let sub = makeLabel(subtitle, font: AppTheme.Typeface.caption(12), color: AppTheme.Pigment.mistGray)
-        sub.numberOfLines = 0
-        s.addArrangedSubview(t)
-        s.addArrangedSubview(sub)
-        return s
-    }
-    private func makeLabel(_ text: String, font: UIFont, color: UIColor) -> UILabel {
-        let l = UILabel(); l.setEmojiSafeText(text, font: font, color: color); return l
-    }
-    private func makeDivider() -> UIView {
-        let v = UIView()
-        v.backgroundColor = AppTheme.Pigment.crystalBorder
-        v.heightAnchor.constraint(equalToConstant: 1).isActive = true
-        return v
-    }
-    private func makeSliderRow(label: String, valueLabel: UILabel, slider: UISlider) -> UIView {
-        let s = UIStackView()
-        s.axis = .vertical
-        s.spacing = 6
-        let top = UIStackView()
-        top.axis = .horizontal
-        top.distribution = .equalSpacing
-        top.addArrangedSubview(makeLabel(label, font: AppTheme.Typeface.body(13), color: AppTheme.Pigment.mistGray))
-        top.addArrangedSubview(valueLabel)
-        s.addArrangedSubview(top)
-        s.addArrangedSubview(slider)
-        return s
-    }
-    private func makeColorLegend(_ text: String, color: UIColor) -> UIView {
-        let s = UIStackView()
-        s.axis = .horizontal
-        s.spacing = 6
-        s.alignment = .center
-        let dot = UIView()
-        dot.backgroundColor = color
-        dot.layer.cornerRadius = 5
-        dot.widthAnchor.constraint(equalToConstant: 10).isActive = true
-        dot.heightAnchor.constraint(equalToConstant: 10).isActive = true
-        s.addArrangedSubview(dot)
-        s.addArrangedSubview(makeLabel(text, font: AppTheme.Typeface.caption(11), color: AppTheme.Pigment.mistGray))
-        return s
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
 
-    // MARK: - Probability Math
     static func percentileGeom(target: Double, p: Double) -> Int {
-        let k = log(1 - target) / log(1 - p)
-        return max(1, Int(ceil(k)))
+        ProbabilityResearchKit.drawsNeeded(rate: p, targetProbability: target)
     }
 
     static func expectedPullsWithPity(rate p: Double, hardPity: Int, softPity: Int, pityEnabled: Bool) -> Double {
-        if !pityEnabled { return 1.0 / p }
-        var expected = 0.0
-        var remaining = 1.0
-        for k in 1...hardPity {
-            var ep = p
-            if k >= softPity {
-                ep = min(1.0, p + Double(k - softPity) * 0.06)
-            }
-            let prob = k == hardPity ? remaining : remaining * ep
-            expected += Double(k) * prob
-            remaining -= prob
-            if remaining <= 0 { break }
-        }
-        return expected
+        let cdf = ProbabilityResearchKit.firstSuccessCDF(baseRate: p, hardPity: hardPity, softPity: softPity, pityEnabled: pityEnabled, maxPulls: hardPity)
+        return ProbabilityResearchKit.quantiles(from: cdf).expectedPulls
     }
 
     static func percentileWithPity(target: Double, rate p: Double, hardPity: Int, softPity: Int, pityEnabled: Bool) -> Int {
-        if !pityEnabled { return percentileGeom(target: target, p: p) }
-        var cumProb = 0.0
-        var remaining = 1.0
-        for k in 1...hardPity {
-            var ep = p
-            if k >= softPity {
-                ep = min(1.0, p + Double(k - softPity) * 0.06)
-            }
-            let prob = k == hardPity ? remaining : remaining * ep
-            cumProb += prob
-            remaining -= prob
-            if cumProb >= target { return k }
-        }
-        return hardPity
+        let cdf = ProbabilityResearchKit.firstSuccessCDF(baseRate: p, hardPity: hardPity, softPity: softPity, pityEnabled: pityEnabled, maxPulls: hardPity)
+        return (cdf.firstIndex(where: { $0 >= target }) ?? max(cdf.count - 1, 0)) + 1
     }
 }

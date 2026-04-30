@@ -3,31 +3,31 @@ import UIKit
 enum AppTheme {
     // MARK: - Palette
     enum Pigment {
-        static let voidBlack     = UIColor(hex: "#0A0A0F")
-        static let abyssNavy     = UIColor(hex: "#0D0D1A")
-        static let cosmicPurple  = UIColor(hex: "#1A0A2E")
-        static let nebulaViolet  = UIColor(hex: "#6C3FC5")
-        static let prismaticBlue = UIColor(hex: "#3B82F6")
-        static let auroraGreen   = UIColor(hex: "#10B981")
-        static let solarGold     = UIColor(hex: "#F59E0B")
-        static let novaRed       = UIColor(hex: "#EF4444")
-        static let stellarPink   = UIColor(hex: "#EC4899")
-        static let glacierWhite  = UIColor(hex: "#F8FAFC")
-        static let mistGray      = UIColor(hex: "#94A3B8")
-        static let obsidianCard  = UIColor(hex: "#13131F")
-        static let crystalBorder = UIColor(hex: "#2A2A45")
+        static let voidBlack     = UIColor(hex: "#F8FAFF")
+        static let abyssNavy     = UIColor(hex: "#E9F1FF")
+        static let cosmicPurple  = UIColor(hex: "#EDE7FF")
+        static let nebulaViolet  = UIColor(hex: "#7C6CF2")
+        static let prismaticBlue = UIColor(hex: "#4D9CFF")
+        static let auroraGreen   = UIColor(hex: "#2BC4A0")
+        static let solarGold     = UIColor(hex: "#FFB84D")
+        static let novaRed       = UIColor(hex: "#FF6B7A")
+        static let stellarPink   = UIColor(hex: "#FF7DBA")
+        static let glacierWhite  = UIColor(hex: "#20304A")
+        static let mistGray      = UIColor(hex: "#6D7E99")
+        static let obsidianCard  = UIColor(hex: "#FFFFFF")
+        static let crystalBorder = UIColor(hex: "#D7E3F4")
 
         // Rarity colors
-        static let ssrGold       = UIColor(hex: "#FFD700")
-        static let srPurple      = UIColor(hex: "#B44FE8")
-        static let rBlue         = UIColor(hex: "#4A9EFF")
+        static let ssrGold       = UIColor(hex: "#FFB547")
+        static let srPurple      = UIColor(hex: "#A37CFF")
+        static let rBlue         = UIColor(hex: "#64B5FF")
 
         // Gradients
-        static let gradientSSR   = [UIColor(hex: "#FFD700"), UIColor(hex: "#FF8C00")]
-        static let gradientSR    = [UIColor(hex: "#B44FE8"), UIColor(hex: "#6C3FC5")]
-        static let gradientR     = [UIColor(hex: "#4A9EFF"), UIColor(hex: "#3B82F6")]
-        static let gradientHero  = [UIColor(hex: "#1A0A2E"), UIColor(hex: "#0D0D1A")]
-        static let gradientAccent = [UIColor(hex: "#6C3FC5"), UIColor(hex: "#3B82F6")]
+        static let gradientSSR   = [UIColor(hex: "#FFD27A"), UIColor(hex: "#FF9A62")]
+        static let gradientSR    = [UIColor(hex: "#C6A8FF"), UIColor(hex: "#8D8BFF")]
+        static let gradientR     = [UIColor(hex: "#8CD0FF"), UIColor(hex: "#5FA8FF")]
+        static let gradientHero  = [UIColor(hex: "#F8FAFF"), UIColor(hex: "#EEF5FF")]
+        static let gradientAccent = [UIColor(hex: "#7C6CF2"), UIColor(hex: "#59B8FF")]
     }
 
     // MARK: - Typography

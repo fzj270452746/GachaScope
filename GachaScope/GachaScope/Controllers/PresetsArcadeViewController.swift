@@ -13,7 +13,7 @@ final class PresetsViewController: UIViewController {
         setupSlotPresets()
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .darkContent }
 
     private func setupScrollView() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
